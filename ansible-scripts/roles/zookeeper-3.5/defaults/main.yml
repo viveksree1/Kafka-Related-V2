@@ -1,0 +1,3 @@
+---
+DATA_DIR: /var/lib/zookeeper
+ZOOKEEPER_DIR: /opt/ns/zookeeper

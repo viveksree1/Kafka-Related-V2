@@ -1,0 +1,70 @@
+
+
+- name: Deploy Packages
+  apt:
+    name: "{{ item }}"
+  with_items:
+    - openjdk-8-jdk
+    - kafka={{ KAFKA_PACKAGE_VERSION_nk }}
+
+
+- name: Create mirrormaker config directory
+  file:
+    path: "{{ KAFKA_HOME_DIRECTORY }}/config/mirrormaker"
+    owner: nsadmin
+    group: nsadmin
+    mode: 0755
+    recurse: yes
+    state: directory
+
+- name: Create mirrormaker config directory
+  file:
+    path: "/var/log/mirrormaker"
+    owner: nsadmin
+    group: nsadmin
+    mode: 0755
+    recurse: yes
+    state: directory
+
+- name: Copying mirrormaker environmental variable.
+  template:
+    src: mirrormaker.env.j2
+    dest: "{{ KAFKA_HOME_DIRECTORY }}/config/mirrormaker/{{ MIRRORMAKER_NAME }}-env"
+    owner: root
+    group: root
+    mode: 0644
+
+- name: copy {{ MIRRORMAKER_NAME }} mirrormaker Consumer  configuration file
+  copy:
+    src: "{{ MIRRORMAKER_NAME }}/consumer.properties"
+    dest: "{{ KAFKA_HOME_DIRECTORY }}/config/mirrormaker/{{ MIRRORMAKER_NAME }}.consumer.properties"
+
+- name: copy {{ MIRRORMAKER_NAME }} mirrormaker Producer  configuration file
+  copy:
+    src: "{{ MIRRORMAKER_NAME }}/producer.properties"
+    dest: "{{ KAFKA_HOME_DIRECTORY }}/config/mirrormaker/{{ MIRRORMAKER_NAME }}.producer.properties"
+
+
+  # Install the kafka configs
+
+- name: Copying Kafka systemd service conf
+  template:
+    src: kafkamirror.service.j2 
+    dest: "/etc/systemd/system/kafkamirror.{{ MIRRORMAKER_NAME }}.service"
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Reload systemd Daemon
+  systemd:
+     daemon_reload: yes
+
+- name: Enable kafka service
+  systemd:
+     name: "kafkamirror.{{ MIRRORMAKER_NAME }}.service" 
+     enabled: true
+
+- name: reload service kafka, in all cases
+  systemd:
+     name: "kafkamirror.{{ MIRRORMAKER_NAME }}.service" 
+     state: started

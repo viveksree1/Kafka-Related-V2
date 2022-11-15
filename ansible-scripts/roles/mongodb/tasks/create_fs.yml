@@ -1,0 +1,66 @@
+---
+
+- name: Check /data mount exists
+  command: /usr/bin/env stat -c '%m' /data
+  register: mount_point
+  changed_when: False
+
+- name: Determine the mount point's filesystem type and mount options
+  set_fact:
+    "data_{{ item }}": "{{ ansible_mounts | selectattr('mount', 'equalto', mount_point.stdout) | map(attribute = item) | join(',') }}"
+  with_items:
+    - fstype
+    - options
+  when: mount_point.stdout == "/data"
+
+- name: Exit if the filesystem is not xfs
+  fail:
+    msg: "Filesystem type of /data is not xfs"
+  when: mount_point.stdout == "/data" and data_fstype != "xfs"
+
+- name: Create partition
+  parted:
+    device: "{{ mongodb_extradisk }}"
+    number: 1
+    label: gpt
+    state: present
+  when: mount_point.stdout != "/data"
+  
+
+- name: sleep for 10 seconds
+  pause:
+    seconds: 10
+  when: mount_point.stdout != "/data"
+
+- name: Create an xfs filesystem on "{{ mongodb_extradisk }}"
+  filesystem:
+    fstype: xfs
+    dev: "{{ mongodb_extradisk }}1"
+  when: mount_point.stdout != "/data"
+
+- name: Create /data
+  file:
+    path: /data
+    owner: mongodb
+    group: mongodb
+    state: directory
+    mode: 0755
+  when: mount_point.stdout != "/data"
+
+- name: Mount /data
+  mount:
+    path: /data
+    src: "{{ mongodb_extradisk }}1"
+    fstype: xfs
+    opts: noatime
+    state: mounted
+  when: mount_point.stdout != "/data"
+
+- name: Create /data
+  file:
+    path: /data
+    owner: mongodb
+    group: mongodb
+    state: directory
+    mode: 0755
+  when: mount_point.stdout != "/data"

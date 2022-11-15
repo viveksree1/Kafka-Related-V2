@@ -1,0 +1,3 @@
+#!/bin/bash
+mongo localhost:27030/admin < /etc/logrotate.js
+/bin/kill -SIGUSR1 $(ps aux | grep '[m]ongodb' | awk '{print $2}')

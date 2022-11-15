@@ -1,0 +1,20 @@
+---
+
+KAFKA_HOME_DIRECTORY: /opt/ns/kafka
+KAFKA_LOG_DIRS: /data/kafka
+
+# In production, use a 15 GB heap
+KAFKA_HEAP_SIZE: "{{ KAFKA_HEAP_SIZE }}"
+
+# Default to a replication factor of `min(3, number of brokers)`
+# The min filter is not available on Ansible < 1.8, so hacked it with the `sort | first`
+KAFKA_REPLICATION_FACTOR_DEFAULT: "{{ [3, (groups['kafka'] | length)] | sort | first }}"
+
+# KIP-134; nk discussion in ENG-49743
+# The presence of `monitoring` is the OPS-approved way to identify production environments
+KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "{{ 3000 if monitoring else 0 }}"
+
+# This should always be explicitly set in production and on the appliance.
+# KAFKA_PACKAGE_VERSION_nk: 1.0.1-ns15  # EXAMPLE ONLY
+KAFKA_PACKAGE_VERSION_UPSTREAM: '{{ KAFKA_PACKAGE_VERSION_nk.split("-")[0] }}'
+KAFKA_PACKAGE_VERSION_nk_SUFFIX: '{{ KAFKA_PACKAGE_VERSION_nk.split("-")[1] }}'

@@ -1,0 +1,8 @@
+install_dir: /opt/pulsar
+zk_servers: localhost:2181
+version: 2.6.0
+max_jvm_heap_memory: 12g
+max_jvm_direct_memory: 12g
+pulsar_cluster_name: iaas
+service_url: pulsar://localhost:6650
+http_url: http://localhost:8080

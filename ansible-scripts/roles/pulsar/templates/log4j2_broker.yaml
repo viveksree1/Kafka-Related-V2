@@ -1,0 +1,29 @@
+Configuration:
+  status: warn
+
+  appenders:
+    #File:
+    #  name: File
+    #  fileName: logs/app.log
+    #  PatternLayout:
+    #    Pattern: "%d %p %C{1.} [%t] %m%n"
+
+    RollingFile:
+    - name: LogToRollingFile
+      fileName: logs/broker.log
+      filePattern: "logs/$${date:yyyy-MM}/app-%d{MM-dd-yyyy}-%i.log.gz"
+      PatternLayout:
+        pattern: "[%-5level] %d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} - %msg%n"
+      Policies:
+        SizeBasedTriggeringPolicy:
+          size: 100MB
+      DefaultRollOverStrategy:
+        max: 30
+
+  Loggers:
+
+    Root:
+      level: info
+      AppenderRef:
+      - ref: LogToRollingFile
+

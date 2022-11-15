@@ -1,0 +1,9 @@
+---
+# Filename kafka/tasks/main.yml
+- include: kafka-deploy.yml
+  tags:
+    - kafka-deploy
+
+- include: kafka-verify.yml
+  tags:
+    - kafka-verify

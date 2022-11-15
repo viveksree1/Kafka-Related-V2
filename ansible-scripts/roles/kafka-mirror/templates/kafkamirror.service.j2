@@ -1,0 +1,20 @@
+[Unit]
+Description=Apache Kafka server (broker)
+Documentation=http://kafka.apache.org/documentation.html
+Requires=network.target remote-fs.target
+After=network.target remote-fs.target
+
+[Service]
+Type=simple
+User=nsadmin
+Group=nsadmin
+EnvironmentFile=/opt/ns/kafka/config/mirrormaker/{{ MIRRORMAKER_NAME }}-env
+ExecStart=/opt/ns/kafka/bin/kafka-mirror-maker.sh --consumer.config "${CONSUMER_CONFIG}" --producer.config "${PRODUCER_CONFIG}" --whitelist "${WHITELIST_TOPICS}"
+PIDFile=/var/run/kafkamirrormaker-{{ MIRRORMAKER_NAME }}.pid
+StandardOutput=/var/log/mirrormaker/{{ MIRRORMAKER_NAME }}.log
+StandardError=/var/log/mirrormaker/{{ MIRRORMAKER_NAME }}.log
+LimitNOFILE=500000
+LimitCORE=infinity
+
+[Install]
+WantedBy=multi-user.target

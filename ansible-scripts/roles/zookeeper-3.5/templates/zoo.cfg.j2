@@ -1,0 +1,18 @@
+tickTime=2000
+dataDir=/var/lib/zookeeper/
+clientPort=2181
+maxClientCnxns=160
+initLimit=5
+syncLimit=2
+{% for url in ansible_play_batch %}
+  {%- set url_host = hostvars[url]['inventory_hostname_short'] -%}
+  {%- if url_host == ansible_hostname -%}
+server.{{url_host.split("0")[1]}}=0.0.0.0:2888:3888
+{% else %}
+server.{{url_host.split("0")[1]}}={{url_host}}:2888:3888
+{% endif %}
+{% endfor %}
+autopurge.snapRetainCount=3
+autopurge.purgeInterval=1
+minSessionTimeout=60000
+maxSessionTimeout=100000

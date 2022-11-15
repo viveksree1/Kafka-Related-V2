@@ -1,0 +1,20 @@
+tickTime=2000
+dataDir=/var/lib/zookeeper/
+clientPort=2181
+maxClientCnxns=160
+initLimit=5
+syncLimit=2
+{% for host in groups['eszookeeper'] %}
+{% if inventory_hostname in groups['eszookeeper'] %}
+server.{{ hostvars[host]['inventory_hostname_short'].split("0")[1] }}={{ hostvars[host]['inventory_hostname_short'] }}:2888:3888
+{% endif %}
+{% endfor %}
+{% for host in groups['zookeeper'] %}
+{% if inventory_hostname in groups['zookeeper'] %}
+server.{{ hostvars[host]['inventory_hostname_short'].split("0")[1] }}={{ hostvars[host]['inventory_hostname_short'] }}:2888:3888
+{% endif %}
+{% endfor %}
+autopurge.snapRetainCount=3
+autopurge.purgeInterval=1
+minSessionTimeout=60000
+maxSessionTimeout=100000

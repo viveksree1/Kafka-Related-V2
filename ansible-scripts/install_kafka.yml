@@ -1,0 +1,37 @@
+---
+- hosts: zookeeper
+  user: ansible
+  become: yes
+  gather_facts: yes
+  vars:
+    group_host: "zookeeper"
+  roles:
+     - role: zookeeper
+       when: installzookeeper is defined and installzookeeper == "yes"
+- hosts: kafka
+  user: ansible
+  become: yes
+  gather_facts: yes
+  vars:
+    group_host: "kafka"
+    KAFKA_PACKAGE_VERSION_nk: 2.4.0-ns35
+    KAFKA_HEAP_SIZE: '{{ (ansible_memtotal_mb/2000)|round|int }}g'
+    monitoring: true
+    KAFKA_RETENTION_HOURS: 48
+    KAFKA_ZOOKEEPER_HOST: "{{ groups['zookeeper'] }}"
+    KAFKA_ZOOKEEPER_PORT: 2181
+  roles:
+    - kafka
+- hosts: kafka
+  user: ansible
+  become: yes
+  gather_facts: no
+  tasks:
+   - name: sleep for 10 secs
+     pause: seconds=10
+     when: servicemanager is defined and servicemanager == "supervisorctl"
+   - name: Start kafka services
+     supervisorctl:
+       name: kafka
+       state: present
+     when: servicemanager is defined and servicemanager == "supervisorctl"

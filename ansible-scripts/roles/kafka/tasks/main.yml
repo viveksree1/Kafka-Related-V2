@@ -1,0 +1,117 @@
+---
+#
+# Filename kafka/tasks/main.yml
+#
+# Copyright (c) 2020 nk, Inc. All rights reserved.
+#
+# Description:
+# Role to install Kafka
+#
+# Creation Date:   Oct 26, 2014
+# Created by Vivek Srikumar <vsrikumar@nk.com>
+
+- name: Deploy Packages
+  apt:
+    name: "{{ item }}"
+#    update_cache: yes
+  sudo: yes
+  with_items:
+    - openjdk-8-jdk
+    - kafka={{ KAFKA_PACKAGE_VERSION_nk }}
+
+- name: Print zookeeper hosts and kafka heap size
+  debug:
+    msg: "Zookeeper hosts - {{ KAFKA_ZOOKEEPER_HOST }} Heap size - {{ KAFKA_HEAP_SIZE }}"
+
+- name: Enable vm.max_map_count
+  # currently cannot format this task as YAML dict because it
+  # breaks the play; probably a bug in our ancient Ansible version
+  sysctl: name=vm.max_map_count value=196590 state=present
+  sudo: yes
+
+- name: Copying kafka-server-start.sh which has G1 GC/ Jolokia properties
+  template:
+    src: kafka-server-start.sh
+    dest: "{{ KAFKA_HOME_DIRECTORY }}/bin/kafka-server-start.sh"
+    owner: nsadmin
+    group: nsadmin
+    mode: 0755
+
+- name: Copying Kafka server.properties file
+  template:
+    src: server.properties.{{ KAFKA_PACKAGE_VERSION_UPSTREAM }}.j2
+    dest: "{{ KAFKA_HOME_DIRECTORY }}/config/server.properties"
+    owner: nsadmin
+    group: nsadmin
+    mode: 0644
+
+
+- name: Copying Kafka server.properties file
+  template:
+    src: server.properties.{{ KAFKA_PACKAGE_VERSION_UPSTREAM }}.j2
+    dest: "{{ KAFKA_HOME_DIRECTORY }}/config/server.properties"
+    owner: nsadmin
+    group: nsadmin
+    mode: 0644
+  when: addproductionproperties is defined and addproductionproperties == "yes"
+
+
+- name: Copying Kafka log4j.properties file
+  template:
+    src: log4j.properties.j2
+    dest: "{{ KAFKA_HOME_DIRECTORY }}/config/log4j.properties"
+    owner: nsadmin
+    group: nsadmin
+    mode: 0644
+
+  # Install the kafka configs
+
+- name: Change stock supervisor confi with large minfds
+  template:
+    src: supervisord.conf
+    dest: "/etc/supervisor/supervisord.conf"
+  when: servicemanager is defined and servicemanager == "supervisorctl"
+
+- name: Copying Kafka supervisor conf
+  template:
+    src: kafka.supervisor.conf
+    dest: "/etc/supervisor/conf.d/kafka.supervisor.conf"
+    owner: nsadmin
+    group: nsadmin
+    mode: 0644
+  when: servicemanager is defined and servicemanager == "supervisorctl"
+
+- name: Copying Kafka systemd service conf
+  template:
+    src: kafka.service.j2 
+    dest: "/etc/systemd/system/kafka.service"
+    owner: root
+    group: root
+    mode: 0644
+  when: servicemanager is defined and servicemanager == "systemd"
+
+- name: Make sure {{ KAFKA_LOG_DIRS }} directory exists
+  file:
+    path: "{{ KAFKA_LOG_DIRS }}"
+    owner: nsadmin
+    group: nsadmin
+    mode: 0755
+    recurse: yes
+    state: directory
+
+- name: Reload systemd Daemon
+  systemd:
+     daemon_reload: yes
+  when: servicemanager is defined and servicemanager == "systemd"
+
+- name: Enable kafka service
+  systemd:
+     name: kafka 
+     enabled: true
+  when: servicemanager is defined and servicemanager == "systemd"
+
+- name: reload service kafka, in all cases
+  systemd:
+     name: kafka
+     state: restarted
+  when: servicemanager is defined and servicemanager == "systemd" and restartKafka is defined and restartKafka == "yes"

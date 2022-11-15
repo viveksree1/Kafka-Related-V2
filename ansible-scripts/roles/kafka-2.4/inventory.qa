@@ -1,0 +1,14 @@
+[kafka-nodes]
+kafka03.qa.local given_name=qakafka03 ext_dns_name=qakafka03 mgmt_dns_name=localhost
+
+
+[zk-nodes]
+zookeeper01.qa.local given_name=qazookeeper01 ext_dns_name=qazookeeper01 mgmt_dns_name=localhost
+zookeeper02.qa.local given_name=qazookeeper02 ext_dns_name=qazookeeper02 mgmt_dns_name=localhost
+zookeeper03.qa.local given_name=qazookeeper03 ext_dns_name=qazookeeper03 mgmt_dns_name=localhost
+
+[kafka:children]
+kafka-nodes
+
+[zookeeper:children]
+zk-nodes

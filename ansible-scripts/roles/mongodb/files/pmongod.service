@@ -1,0 +1,34 @@
+[Unit]
+Description=High-performance, schema-free document-oriented database
+After=time-sync.target network.target
+
+[Service]
+#Type=forking
+User=mongod
+Group=mongod
+PermissionsStartOnly=true
+# file size
+LimitFSIZE=infinity
+# cpu time
+LimitCPU=infinity
+# virtual memory size
+LimitAS=infinity
+# open files
+LimitNOFILE=500000
+# processes/threads
+LimitNPROC=500000
+# (locked-in-memory size)
+LimitMEMLOCK=infinity
+# total threads (user+kernel)
+TasksMax=infinity
+TasksAccounting=false
+EnvironmentFile=-/etc/default/mongod
+ExecStartPre=/usr/bin/percona-server-mongodb-helper.sh
+ExecStart=/usr/bin/env bash -c "${NUMACTL} /usr/bin/mongod ${OPTIONS} > ${STDOUT} 2> ${STDERR}"
+PIDFile=/var/run/mongod.pid
+
+# Recommended limits for for mongod as specified in
+# http://docs.mongodb.org/manual/reference/ulimit/#recommended-settings
+
+[Install]
+WantedBy=multi-user.target

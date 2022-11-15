@@ -1,0 +1,12 @@
+- hosts: kafka
+  user: ansible
+  become: yes
+  gather_facts: yes
+  vars:
+    KAFKA_PACKAGE_VERSION_nk: 2.4.0-ns35
+    KAFKA_HEAP_SIZE: '{{ (ansible_memtotal_mb/2000)|round|int }}g'
+    MIRRORMAKER_NAME: "am2-raven-eu"
+    WHITELIST_TOPICS_FOR_MIRROR: "apifilemeta_vmworld|event_page|event_application|event_alerts|apiusermeta_vmworld|iaas_rule_res"
+  roles:
+    - kafka-mirror
+

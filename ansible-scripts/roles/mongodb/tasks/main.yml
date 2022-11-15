@@ -1,0 +1,234 @@
+####################################
+### Install mongodb from nsrepo  ###
+####################################
+
+- name: Add mongod user
+  user:
+    name: mongod
+
+- name: Get mongodb node count
+  set_fact: hostcount="{{ groups['mongodb'] | length }}"
+
+- name: Run the equivalent of "apt-get update"
+  apt:
+    update_cache: yes
+
+- name: Install numactl
+  apt:
+    name: numactl
+    state: present
+
+- name: Install python-pip
+  apt:
+    name: python-pip
+    state: present
+  tags: install_pymongo
+
+- name: Install pymongo python package
+  pip:
+    name: pymongo
+  tags: install_pymongo
+    
+- name: Create /etc/mongod.conf for Production mongo clusters
+  template: src=mongod-production.conf dest=/etc/mongod.conf owner="root" group="root" mode=0777
+  when: stack_name is not defined or stack_name == "prod"
+  tags: install_mongod
+
+- name: Install mongo packages
+  command: apt-get install -y mongodb-org={{mongo_version}} mongodb-org-server={{mongo_version}} mongodb-org-shell={{mongo_version}} mongodb-org-mongos={{mongo_version}} mongodb-org-tools={{mongo_version}}
+  when: mongo_distribution is defined and mongo_distribution != "percona"
+
+- name: Install Percona mongo packages
+  apt:
+    name: ["percona-server-mongodb-36={{percona_mongo_version}}", "percona-server-mongodb-36-server={{percona_mongo_version}}", "percona-server-mongodb-36-shell={{percona_mongo_version}}", "percona-server-mongodb-36-mongos={{percona_mongo_version}}", "percona-server-mongodb-36-tools={{percona_mongo_version}}", "percona-server-mongodb-36-dbg={{percona_mongo_version}}"]
+    state: present
+  ignore_errors: yes
+  when: mongo_distribution is defined and mongo_distribution == "percona"
+
+- name: Copy mongod.service to systemd
+  copy: src=pmongod.service dest=/lib/systemd/system/mongod.service owner=root group=root mode=0644
+  tags: install_mongod
+  when: mongo_distribution is defined and mongo_distribution == "percona"
+
+- name: Create /etc/mongod.conf for Production mongo clusters
+  template: src=mongod-production.conf dest=/etc/mongod.conf owner="{{ mongo_user }}" group="{{ mongo_user }}" mode=0644
+  tags: install_mongod
+
+- name: Copy DisableTransparentHugepages to startup
+  copy: src=DisableTransparentHugepages.service dest=/etc/systemd/system/disable-transparent-huge-pages.service owner=root group=root mode=0644
+  tags: install_mongod
+  when: mongo_distribution is defined and mongo_distribution != "percona"
+
+- name: Copy mongod.service to systemd
+  copy: src=mongod.service dest=/lib/systemd/system/mongod.service owner=root group=root mode=0644
+  tags: install_mongod
+  when: mongo_distribution is defined and mongo_distribution != "percona"
+
+- name: just force systemd to reread configs
+  systemd:
+    daemon_reload: yes
+
+- name: Enable DisableTransparentHugepages.service
+  command: systemctl enable /etc/systemd/system/disable-transparent-huge-pages.service
+  tags: install_mongod
+  when: mongo_distribution is defined and mongo_distribution != "percona"
+
+- name: Create /opt/ns/nk/bin
+  file:
+   path: /opt/ns/nk/bin
+   recurse: yes
+   state: directory
+
+- name: Install lftp
+  apt:
+    name: lftp
+    state: present
+  tags: copy_find_hung
+
+- name: Copy collect_mongo_logs.sh to /opt/ns/nk/bin
+  copy:
+   src: collect_mongo_logs.sh
+   dest: /opt/ns/nk/bin/collect_mongo_logs.sh
+   owner: root
+   group: root
+   mode: 0755
+  tags: copy_find_hung
+
+- name: Copy check_if_hung.sh to /opt/ns/nk/bin
+  copy:
+   src: check_if_hung.sh
+   dest: /opt/ns/nk/bin/check_if_hung.sh
+   owner: root
+   group: root
+   mode: 0755
+  tags: copy_find_hung
+
+- name: Create /var/log/mongo_hung_restart.log
+  file:
+   path: /var/log/mongo_hung_restart.log
+   state: touch
+   owner: root
+   group: root
+   mode: 0755
+  tags: copy_find_hung
+
+- name: Create crontab for running check_if_hung.sh
+  cron:
+    name: Check if hung cron
+    user: root
+    job: "/opt/ns/nk/bin/check_if_hung.sh >> /var/log/mongo_hung_restart.log"
+  tags: copy_find_hung
+
+- name: just force systemd to reread configs
+  systemd:
+    name: mongod
+    enabled: yes
+
+- name: Copy sysctl to startup
+  copy: src=sysctl.conf dest=/etc/sysctl.conf owner=root group=root mode=0644
+  tags: install_mongod
+
+- name: Disable transparent pages
+  shell: echo never > /sys/kernel/mm/transparent_hugepage/enabled
+  tags: install_mongod
+
+- name: Disable Defrag pages
+  shell: echo never > /sys/kernel/mm/transparent_hugepage/defrag
+  tags: install_mongod
+
+- name: Increase max map count
+  sysctl:
+    name: vm.max_map_count
+    value: "524288"
+    state: present
+
+- name: Increase file-max
+  sysctl:
+    name: fs.file-max
+    value: "52705576"
+    state: present
+
+- name: Increase pid_max
+  sysctl:
+    name: kernel.pid_max
+    value: "524288"
+    state: present
+
+- name: Increase threads-max
+  sysctl:
+    name: kernel.threads-max
+    value: "4126903"
+    state: present
+    reload: yes
+
+- name: Set swappiness to 1
+  sysctl:
+    name: vm.swappiness
+    value: "1"
+    state: present
+    reload: yes
+
+- name: Set tcp keepalive to 120
+  sysctl:
+    name: net.ipv4.tcp_keepalive_time
+    value: "120"
+    state: present
+    reload: yes
+
+- name: Set vm.dirty_background_ratio to 2
+  sysctl:
+    name: vm.dirty_background_ratio
+    value: "2"
+    state: present
+    reload: yes
+
+- name: Set vm.dirty_ratio to 5
+  sysctl:
+    name: vm.dirty_ratio
+    value: "5"
+    state: present
+    reload: yes
+
+- name: Change file permission for log folder
+  file: path=/var/log/mongodb state=directory owner="{{ mongo_user }}" group="{{ mongo_user }}"  mode=0755
+  tags: install_mongod
+
+- name: Create /data
+  file:
+    path: /data
+    owner: "{{ mongo_user }}"
+    group: "{{ mongo_user }}"
+    state: directory
+    mode: 0755
+  tags: install_mongod
+
+- name: Copy logrotate scripts
+  copy: src={{ item }} dest=/etc/{{ item }} owner="{{ mongo_user }}" group="{{ mongo_user }}" mode=0755
+  with_items:
+    - logrotate.js
+    - mongo_logrotate
+  tags: install_mongod
+
+- name: Copy Logrotate config file for mongodb
+  copy: src=mongodb dest=/etc/logrotate.d/mongodb owner="{{ mongo_user }}" group="{{ mongo_user }}" mode=0644
+  tags: install_mongod
+
+- name: Copy the mongo auth file for production clusters
+  copy: src=prod_keyfile dest=/etc/mongo_keyfile owner="{{ mongo_user }}" group="{{ mongo_user }}" mode=0400
+
+- name: Start disable-transparent-huge-pages.service
+  shell: systemctl start disable-transparent-huge-pages.service
+  when: mongo_distribution is defined and mongo_distribution != "percona"
+
+- name: Copy percona mongo pre service startup script
+  copy: src=percona-server-mongodb-helper.sh dest=/usr/bin/percona-server-mongodb-helper.sh owner="root" group="root" mode=0755
+
+- name: Reload systemd daemons
+  systemd:
+    daemon_reload: yes
+
+- name: Start mongod
+  systemd:
+    name: mongod
+    state: restarted
+    enabled: True

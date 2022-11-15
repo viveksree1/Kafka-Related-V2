@@ -1,0 +1,6 @@
+---
+dns_domain: qa.local
+servicemanager: systemd
+restartKafka: no
+addproductionproperties: no
+installzookeeper: no

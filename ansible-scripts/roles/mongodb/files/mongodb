@@ -1,0 +1,18 @@
+/var/log/mongodb/*.log {
+
+        weekly
+        rotate 7
+        size 100M
+        delaycompress
+        compress
+        dateext
+        missingok
+        notifempty
+        sharedscripts
+	create 644 mongod mongod
+        postrotate
+                /etc/mongo_logrotate
+        endscript
+
+}
+

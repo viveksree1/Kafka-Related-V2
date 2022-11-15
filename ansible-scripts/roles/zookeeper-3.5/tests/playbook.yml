@@ -1,0 +1,7 @@
+# playbook.yml
+---
+- hosts: switches
+  become: true
+  remote_user: rsridar
+  roles:
+    - zookeeper-3.5

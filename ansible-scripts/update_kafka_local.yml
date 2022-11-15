@@ -1,0 +1,49 @@
+---
+
+- hosts: kafka
+  serial: 1
+  user: ansible
+  become: yes
+  gather_facts: false
+  vars:
+    KAFKA_HEAP_SIZE: '{{ (ansible_memtotal_mb/2000)|round|int }}g'
+    KAFKA_RETENTION_HOURS: 48
+    KAFKA_ZOOKEEPER_HOST: "{{ groups['zookeeper'] }}"
+    KAFKA_ZOOKEEPER_PORT: 2181
+    KAFKA_HOME_DIRECTORY: /opt/ns/kafka
+    KAFKA_LOG_DIRS: /data/kafka
+    KAFKA_REPLICATION_FACTOR_DEFAULT: "3"
+    KAFKA_MIN_INSYNC_REPLICAS_DEFAULT: "3"
+    KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "{{ 3000 }}"
+  tasks:
+    - shell:
+        cmd: /opt/ns/kafka/bin/zookeeper-shell.sh {{ groups['zookeeper'][0] }}:{{ KAFKA_ZOOKEEPER_PORT }} ls /brokers/ids 
+      register: first_result
+    - name: Stop service kafka
+      systemd:
+        name: kafka
+        state: stopped
+    - name: Replacing config in Kafka server.properties file
+      replace:
+        path: /opt/ns/kafka/config/server.properties
+        regexp: 'log.message.format.version=1.0.1'
+        replace: 'log.message.format.version=2.4.0'
+        backup: yes
+    - name: reload service kafka, in all cases
+      systemd:
+        name: kafka
+        state: started
+    - name: sleep for 240 secs
+      pause: seconds=240
+    - shell:
+        cmd: /opt/ns/kafka/bin/zookeeper-shell.sh {{ groups['zookeeper'][0] }}:{{ KAFKA_ZOOKEEPER_PORT }} ls /brokers/ids
+      register: second_result
+    - name: Stop ansible when the number of brokers are not back to normal.
+      fail: msg="The broker is not added back to the existing cluster"
+      when: first_result.stdout != second_result.stdout
+    - shell:
+        cmd: /opt/ns/kafka/bin/kafka-topics.sh --describe --under-replicated-partitions --zookeeper {{ groups['zookeeper'][0] }}:{{ KAFKA_ZOOKEEPER_PORT }}
+      register: under_partitioned_topics
+    - name: Stop ansible when there are under replicated partitions
+      fail: msg="There are under replicated partitions"
+      when: under_partitioned_topics.stdout != ""

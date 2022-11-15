@@ -1,0 +1,18 @@
+---
+#
+# Filename zookeeper/tasks/main.yml
+#
+# Copyright (c) 2020 nk, Inc. All rights reserved.
+#
+# Description:
+# Role to install ZooKeeper
+#
+# Original Author: Vivek Srikumar <vsrikumar@nk.com>
+# Creation Date:   Mar 2, 2020
+- include: zookeeper-deploy.yml
+  tags:
+    - zookeeper-deploy
+
+- include: zookeeper-verify.yml
+  tags:
+    - zookeeper-verify

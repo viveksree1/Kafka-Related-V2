@@ -1,0 +1,62 @@
+---
+#
+# Filename zookeeper/tasks/zookeeper-verify.yml
+#
+# Copyright (c) 2020 nk, Inc. All rights reserved.
+#
+# Description:
+# Role to Verify ZooKeeper
+#
+# Original Author: Vivek <vsrikumar@nk.com>
+# Creation Date:   Sept 2, 2020
+
+  - name: "Check Zookeeper status"
+    block:
+      - shell: "{{ ZOOKEEPER_DIR }}/bin/zkServer.sh status"
+        register: status
+    rescue:
+      - systemd:
+          name: zookeeper
+          state: restarted
+        when: status.rc != 0
+
+  - name: "Wait for zookeeper instances to come up"
+    wait_for:
+      port: "{{ item }}"
+      host: "localhost"
+      connect_timeout: 120
+      timeout: 120
+    with_items: "{{ zookeeper_ports }}"
+    ignore_errors: yes
+    register: healthcheck
+    tags:
+      - zookeeper-healthcheck
+
+  - name: "Get Zookeeper leader"
+    shell: "{{ ZOOKEEPER_DIR }}/bin/zkServer.sh status"
+    register: status
+    failed_when: False
+    changed_when: False
+
+  - name: "Assign Zookeeper Leader"
+    set_fact:
+      leader: "{{ inventory_hostname_short }}"
+    when: "'leader' in status.stdout"
+
+  - name: "Wait for zookeeper leader port to come up"
+    wait_for:
+      port: "{{ zookeeper_leader_port }}"
+      host: "{{ leader }}"
+      connect_timeout: 120
+      timeout: 120
+    when: leader is defined
+    register: healthcheck
+    tags:
+      - zookeeper-healthcheck
+
+  - name: "Check zookeeper port test result"
+    fail:
+      msg: "zookeeper port not open"
+    when: healthcheck.elapsed is defined and (healthcheck.elapsed >= 120 and 120 > 0)
+    tags:
+      - zookeeper-healthcheck

@@ -1,0 +1,17 @@
+[Unit]
+Description=Apache Kafka server (broker)
+Documentation=http://kafka.apache.org/documentation.html
+Requires=network.target remote-fs.target
+After=network.target remote-fs.target
+
+[Service]
+Type=simple
+User=nsadmin
+Group=nsadmin
+ExecStart=/opt/ns/kafka/bin/kafka-server-start.sh /opt/ns/kafka/config/server.properties
+ExecStop=/opt/ns/kafka/bin/kafka-server-stop.sh
+LimitNOFILE=500000
+LimitCORE=infinity
+
+[Install]
+WantedBy=multi-user.target

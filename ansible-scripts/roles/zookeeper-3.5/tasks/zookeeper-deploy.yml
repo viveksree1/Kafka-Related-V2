@@ -1,0 +1,113 @@
+---
+#
+# Filename zookeeper/tasks/zookeeper-deploy.yml
+#
+# Copyright (c) 2020 nk, Inc. All rights reserved.
+#
+# Description:
+# Role to Deploy ZooKeeper
+#
+# Original Author: Vivek Srikumar <vsrikumar@nk.com>
+# Creation Date:   Mar 2, 2020
+
+  - name: Wait for automatic system updates
+    become: yes
+    shell: while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 600; done;
+
+  - name: Deploy ZooKeeper package
+    apt:
+      pkg:
+       - zookeeper=3.5.5-ns42
+      update_cache: yes
+      allow_unauthenticated: yes
+
+  - name: Create zookeeper data directory
+    file:
+      path: /var/lib/zookeeper
+      state: directory
+      owner: nsadmin
+      group: nsadmin
+      mode: "0755"
+
+  - name: Set MyId
+    template:
+      src: myid.j2
+      dest: /var/lib/zookeeper/myid
+      owner: nsadmin
+      group: nsadmin
+      mode: "0644"
+
+  - name: Create zookeeper conf directory
+    file:
+      path: /opt/ns/zookeeper/conf
+      state: directory
+      owner: nsadmin
+      group: nsadmin
+      mode: "0755"
+
+  - name: Copy java.env for changing the default heap size
+    template:
+      src: java.env.j2
+      dest: /opt/ns/zookeeper/conf/java.env
+      owner: nsadmin
+      group: nsadmin
+      mode: "0644"
+
+  - name: Copying ZooKeeper Config file
+    with_items: "{{ ansible_hostname }}"
+    template:
+      src: zoo.cfg.j2
+      dest: /opt/ns/zookeeper/conf/zoo.cfg
+      owner: nsadmin
+      group: nsadmin
+      mode: "0644"
+
+  - name: Copying a zookeeper env file
+    template:
+      src: templates/zookeeper-env.sh.j2
+      dest: /opt/ns/zookeeper/conf/zookeeper-env.sh
+
+  - name: Copying zookeeper supervisor conf
+    template:
+      src: zookeeper.supervisor.conf
+      dest: "/etc/supervisor/conf.d/zookeeper.supervisor.conf"
+      owner: nsadmin
+      group: nsadmin
+      mode: "0644"
+    when: servicemanager is defined and servicemanager == "supervisorctl"
+
+  - name: Start zookeeper services
+    supervisorctl:
+      name: zookeeper
+      state: present
+    when: servicemanager is defined and servicemanager == "supervisorctl"
+
+  - name: Copy zookeeper Service config for systemd
+    template:
+      src: zookeeper.service.j2
+      dest: "/etc/systemd/system/zookeeper.service"
+      owner: root
+      group: root
+      mode: "0644"
+    when: servicemanager is defined and servicemanager == "systemd"
+
+  - name: Reload systemd Daemon
+    systemd:
+        daemon_reload: yes
+    when: servicemanager is defined and servicemanager == "systemd"
+
+  - name: Enable Zookeeeper service
+    systemd:
+        name: zookeeper
+        enabled: true
+    when: servicemanager is defined and servicemanager == "systemd"
+
+  - name: reload service zookeeper, in all cases
+    systemd:
+        name: zookeeper
+        state: restarted
+    when: servicemanager is defined and servicemanager == "systemd"
+
+  - name: Sleep for 2 minutes for zk to stabilize
+    pause:
+     minutes: "2"

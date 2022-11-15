@@ -1,0 +1,30 @@
+---
+#
+# Filename kafka/tasks/kafka-verify.yml
+#
+# Copyright (c) 2020 nk, Inc. All rights reserved.
+#
+# Description:
+# Role to Verify Kafka
+#
+# Original Author: Vivek <vsrikumar@nk.com>
+# Creation Date:   Sept 2, 2020
+
+  - name: "Wait for kafka to come up and open it's server port"
+    wait_for:
+      port: "{{ KAFKA_BROKER_PORT }}"
+      host: "{{ KAFKA_HEALTHCHECK_ADDRESS }}"
+      connect_timeout: "{{ KAFKA_PORT_TEST_TIMEOUT_SECONDS }}"
+      timeout: "{{ KAFKA_PORT_TEST_TIMEOUT_SECONDS }}"
+      state: drained
+    ignore_errors: yes
+    register: healthcheck
+    tags:
+      - kafka-healthcheck
+
+  - name: "Check kafka port test result"
+    fail:
+      msg: "Kafka port not open on host={{ KAFKA_HEALTHCHECK_ADDRESS }}, port={{ KAFKA_BROKER_PORT }}"
+    when: healthcheck.elapsed is defined and (healthcheck.elapsed >= KAFKA_PORT_TEST_TIMEOUT_SECONDS and KAFKA_PORT_TEST_TIMEOUT_SECONDS > 0)
+    tags:
+      - kafka-healthcheck
